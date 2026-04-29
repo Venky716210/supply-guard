@@ -7,4 +7,4 @@ what it does ;
 - Monitors live news for supply chain disruption signals
 - Scores suppliers 0-100 using AI
 - Shows a live world map with color-coded risk pins
-- It provides the war crises data,  between the Iran and ukarine war how it impacts to the world.
+- It provides the national news comparison between the countries.
