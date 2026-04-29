@@ -1,1 +1,176 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import folium
+from streamlit_folium import st_folium
+from datetime import datetime
+import random
+import os
+
+# ===================== STYLING =====================
+st.set_page_config(page_title="Xebia SupplyGuard", layout="wide", page_icon="🛡️")
+
+st.markdown("""
+    <style>
+    .main {background: linear-gradient(135deg, #0f172a 0%, #1e2937 100%);}
+    h1, h2 {color: #60a5fa;}
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🛡️ Xebia SupplyGuard")
+st.markdown("### AI-Powered Supply Chain Disruption Early Warning System")
+
+# ===================== LOAD DATA =====================
+if not os.path.exists("data"):
+    os.makedirs("data")
+
+@st.cache_data
+def load_data():
+    data_path = "data/suppliers_data.csv"
+    if os.path.exists(data_path):
+        df = pd.read_csv(data_path)
+    else:
+        st.error(" Data file not found! Please make sure suppliers_data.csv exists in the 'data' folder.")
+        st.stop()
+    
+    # Calculate Risk_Level if it doesn't exist
+    if 'Risk_Level' not in df.columns:
+        df['Risk_Score'] = (
+            df.get('Geopolitical_Risk', 0) * 0.35 +
+            df.get('Climate_Anomaly', 0) * 0.30 +
+            df.get('Transport_Risk', 0) * 0.20 +
+            df.get('Demand_Fluctuation', 0)/100 * 0.15
+        ) * 100
+        df['Risk_Score'] = df['Risk_Score'].round(1)
+        df['Risk_Level'] = pd.cut(df['Risk_Score'], bins=[0,40,65,100], labels=['Low', 'Medium', 'High'])
+    
+    return df
+
+data = load_data()
+
+# ===================== SIDEBAR =====================
+st.sidebar.markdown("### 🛠️ Controls")
+risk_threshold = st.sidebar.slider("🚨 Risk Alert Threshold (%)", 30, 90, 65)
+
+if st.sidebar.button("🔄 Refresh Signals", use_container_width=True):
+    st.rerun()
+
+# ===================== HEADER =====================
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Overall Risk", "HIGH 🔴", "↑ 28%")
+
+# Fixed High Risk Suppliers count
+high_risk_count = len(data[data['Risk_Level'] == 'High']) if 'Risk_Level' in data.columns else 0
+c2.metric("High Risk Suppliers", str(high_risk_count))
+
+c3.metric("Climate Alerts", "5")
+c4.metric("Last Updated", datetime.now().strftime("%d %b %H:%M"))
+
+st.divider()
+
+# ===================== TABS =====================
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📊 Risk Overview", 
+    "🌡️ Climate & Geopolitical", 
+    "📰 Live News", 
+    "🗺️ World Map", 
+    "🤖 AI Copilot", 
+    "⚔️ Crisis Comparison"
+])
+
+with tab1:
+    st.subheader("Supplier Risk Scoring")
+    fig = px.bar(data.sort_values('Risk_Score', ascending=False), 
+                 x='Supplier', y='Risk_Score', color='Risk_Level',
+                 color_discrete_map={'Low':'#22c55e', 'Medium':'#eab308', 'High':'#ef4444'})
+    st.plotly_chart(fig, use_container_width=True)
+    st.dataframe(data, use_container_width=True)
+
+with tab2:
+    st.subheader("🌡️ Climate & Geopolitical Signals")
+    col1, col2, col3 = st.columns(3)
+    
+    avg_geo = data['Geopolitical_Risk'].mean()
+    avg_climate = data['Climate_Anomaly'].mean()
+    
+    with col1:
+        st.metric("Geopolitical Risk", f"{avg_geo:.2f}", "🔴 High" if avg_geo > 0.6 else "🟠 Medium")
+    with col2:
+        st.metric("Climate / Weather Risk", f"{avg_climate:.2f}", "🔴 High" if avg_climate > 0.6 else "🟠 Medium")
+    with col3:
+        st.metric("Avg Overall Risk", f"{data['Risk_Score'].mean():.1f}")
+
+    st.markdown("### Supplier-wise Status")
+    for _, row in data.iterrows():
+        with st.container(border=True):
+            st.markdown(f"**{row['Supplier']}** ({row['Country']})")
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("Geopolitical", f"{row['Geopolitical_Risk']:.2f}", 
+                         "🔴" if row['Geopolitical_Risk'] > 0.65 else "🟠" if row['Geopolitical_Risk'] > 0.4 else "🟢")
+            with col_b:
+                st.metric("Climate/Weather", f"{row.get('Climate_Anomaly', 0):.2f} | {row.get('Weather_Condition', 'N/A')}", 
+                         "🔴" if row.get('Climate_Anomaly', 0) > 0.65 else "🟠" if row.get('Climate_Anomaly', 0) > 0.4 else "🟢")
+            with col_c:
+                st.metric("Overall Risk", f"{row.get('Risk_Score', 0):.1f}", row.get('Risk_Level', 'High'))
+
+with tab3:
+    st.subheader("📰 Live News Monitor")
+    for item in [
+        "🌪️ Cyclone warning issued for Bay of Bengal affecting Indian ports",
+        "🌧️ Severe flooding in Malaysia impacting semiconductor supply",
+        "⚠️ Geopolitical tensions rise in Strait of Hormuz",
+        "🔥 Extreme heatwave reported in parts of Europe"
+    ]:
+        st.warning(item)
+
+with tab4:
+    st.subheader("🗺️ Live World Risk Map")
+    m = folium.Map(location=[20, 0], zoom_start=2, tiles="CartoDB dark_matter")
+    for _, row in data.iterrows():
+        color = "red" if row.get('Risk_Score', 0) > 65 else "orange" if row.get('Risk_Score', 0) > 40 else "green"
+        folium.Marker(
+            location=[random.uniform(8, 55), random.uniform(-100, 120)],
+            popup=f"{row['Supplier']}<br>Risk: {row.get('Risk_Score', 0)}",
+            icon=folium.Icon(color=color)
+        ).add_to(m)
+    st_folium(m, width=1300, height=600)
+
+with tab5:
+    st.subheader("🤖 AI Copilot")
+    st.caption("Ask questions like: 'Risk for India?' or 'Climate in Malaysia?'")
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = [{"role": "assistant", "content": "Hi! Ask me about climate, geopolitical risks, or specific suppliers."}]
+
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+
+    if prompt := st.chat_input("Ask your question..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.write(prompt)
+
+        lower = prompt.lower()
+        if "india" in lower or "foxconn" in lower or "tata" in lower:
+            response = "Foxconn (India) and Tata Steel are at **High Risk** due to high Geopolitical Risk and Heavy Rain conditions."
+        elif "germany" in lower or "bosch" in lower:
+            response = "Bosch (Germany) is currently in **Low Risk** zone with normal weather conditions."
+        elif "malaysia" in lower or "intel" in lower:
+            response = "Intel (Malaysia) has **High Climate Risk** due to flooding (Climate Anomaly: 0.82)."
+        elif "climate" in lower or "weather" in lower:
+            response = "Climate anomalies are high in India and Malaysia. Flooding and heavy rain are major concerns."
+        else:
+            response = "The main risks right now are driven by **Climate Conditions** and **Geopolitical Events** in Asia."
+
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        with st.chat_message("assistant"):
+            st.write(response)
+
+with tab6:
+    st.subheader("⚔️ Crisis Comparison")
+    st.info("Iran Conflict 2026 is more critical for global oil supply than the 2022 Russia-Ukraine war due to Strait of Hormuz risk.")
+
 
