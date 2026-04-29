@@ -1,0 +1,9 @@
+Supplier,Country,Geopolitical_Risk,Climate_Anomaly,Weather_Condition,Transport_Risk,Demand_Fluctuation
+Foxconn (India),India,0.85,0.78,Heavy Rain,0.72,65
+Samsung (Vietnam),Vietnam,0.45,0.65,Storm,0.55,42
+Bosch (Germany),Germany,0.32,0.28,Normal,0.38,28
+Pfizer (USA),USA,0.38,0.45,Extreme Heat,0.35,35
+Nestle (Switzerland),Switzerland,0.25,0.22,Normal,0.48,30
+Intel (Malaysia),Malaysia,0.68,0.82,Flood,0.65,58
+Maersk Logistics,Global,0.88,0.52,Heavy Rain,0.85,70
+Tata Steel (India),India,0.55,0.48,Storm,0.60,45
